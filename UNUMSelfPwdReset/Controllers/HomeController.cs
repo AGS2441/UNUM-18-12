@@ -48,12 +48,14 @@ namespace UNUMSelfPwdReset.Controllers
         #region For My Accounts Page
         public async Task<IActionResult> Index()
         {
+
             var me = await _graphServiceClient.Me.Request().GetAsync();
             
             string accessToken = await _azureAdminActionManager.GetAdminTokenForGraph();
             var userInfo = CopyHandler.UserProperty(me);
             try
             {
+                var Error = " User details by Admin";
                 var user = await _graphServiceClient.Users[me.UserPrincipalName]
                    .Request()
                    .Select(x => new   { x.LastPasswordChangeDateTime,x.OnPremisesSamAccountName,x.PasswordProfile})
@@ -63,14 +65,17 @@ namespace UNUMSelfPwdReset.Controllers
                 userInfo.OnPremisesSamAccountName = user?.OnPremisesSamAccountName;
 
                 #region to get User Last Login date time
+                Error = "call graph api for signInActivity";
+
                 dynamic result = await CallGraphApi( accessToken,me.Id);
                 LastLoginViewModel model = new LastLoginViewModel();
+                Error = "Deserialize the signInActivity model";
                 model = JsonSerializer.Deserialize<LastLoginViewModel>(result);
                 // to convert the date time to local datetime
                 //DateTime univDateTime = DateTime.Parse(model.signInActivity.lastSignInDateTime.ToString());
                 //DateTime localDateTime = univDateTime.ToLocalTime();
                 #endregion
-
+                Error = "call login clients send the values";
                 userInfo.LoginClients = await _loginsManager.GetUserLogins(userInfo?.Id, userInfo?.UserPrincipalName, Convert.ToDateTime(userInfo?.LastPasswordChangeDateTime), user?.OnPremisesSamAccountName , model.signInActivity.lastSignInDateTime);
                 string strProfilePicBase64 = "";
                 try
@@ -109,7 +114,7 @@ namespace UNUMSelfPwdReset.Controllers
             catch (Exception ex)
             {
 
-                TempData.SetObjectAsJson("PopupViewModel", StaticMethods.CreatePopupModel("Home", ex.Message));
+                TempData.SetObjectAsJson("PopupViewModel", StaticMethods.CreatePopupModel("Home", ex.Message +"--"+ Error));
             }
             return View(userInfo);
         }
@@ -257,6 +262,7 @@ namespace UNUMSelfPwdReset.Controllers
                 }
             }catch(Exception ex)
             {
+                //TempData.SetObjectAsJson("PopupViewModel", StaticMethods.CreatePopupModel("Home", ex.Message + "in SigninActivity API"));
                 return ex.Message;
             }
         }
