@@ -56,7 +56,7 @@ namespace UNUMSelfPwdReset.Controllers
             {
                 var user = await _graphServiceClient.Users[me.UserPrincipalName]
                    .Request()
-                   .Select(x => new   { x.LastPasswordChangeDateTime,x.OnPremisesSamAccountName})
+                   .Select(x => new   { x.LastPasswordChangeDateTime,x.OnPremisesSamAccountName,x.PasswordProfile})
                    .GetAsync();
 
                 userInfo.LastPasswordChangeDateTime = user?.LastPasswordChangeDateTime?.DateTime;
@@ -71,7 +71,7 @@ namespace UNUMSelfPwdReset.Controllers
                 //DateTime localDateTime = univDateTime.ToLocalTime();
                 #endregion
 
-                userInfo.LoginClients = await _loginsManager.GetUserLogins(userInfo?.Id, userInfo?.UserPrincipalName, Convert.ToDateTime(model.signInActivity.lastSignInDateTime), user?.OnPremisesSamAccountName , model.signInActivity.lastSignInDateTime);
+                userInfo.LoginClients = await _loginsManager.GetUserLogins(userInfo?.Id, userInfo?.UserPrincipalName, Convert.ToDateTime(userInfo?.LastPasswordChangeDateTime), user?.OnPremisesSamAccountName , model.signInActivity.lastSignInDateTime);
                 string strProfilePicBase64 = "";
                 try
                 {
@@ -96,8 +96,15 @@ namespace UNUMSelfPwdReset.Controllers
                 {
                     HttpContext.Session.SetString("LastName", userInfo.Surname?.ToString());
                 }
+                if (user.PasswordProfile!=null)
+                {
+                    if (user.PasswordProfile.ForceChangePasswordNextSignIn==true)
+                    {
+                        userInfo.LoginClients[0].ExpireInDays=0;
+                    }
+                }
                 int? days = userInfo.LoginClients[0].ExpireInDays;
-                return View(userInfo);
+               // return View(userInfo);
             }
             catch (Exception ex)
             {
@@ -137,7 +144,7 @@ namespace UNUMSelfPwdReset.Controllers
                     return View (model);
                 }
                 else
-                {
+                { 
                     TempData.SetObjectAsJson("PopupViewModel", StaticMethods.CreatePopupModel("Home", response + " After Reset Password Method "));
                     return RedirectToAction("Index");
                 }
